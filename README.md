@@ -10,10 +10,12 @@ Synapse-Assistant-AI is a completely offline, privacy-first, voice-controlled AI
 
 - **100% Offline & Private:** Uses local LLMs (via Ollama) and offline Speech-to-Text (Vosk). No API keys, no internet required (except for initial setup and web searches).
 - **Voice-Controlled:** Always listening for its wake word (e.g., "Jarvis", "Friday", or your custom name).
+- **Context Memory (v0.2.0):** Remembers your recent conversation history so you can ask follow-up questions naturally.
+- **Vision & Clipboard (v0.2.0):** Can read your screen (OCR) and read your copied clipboard text.
+- **Plugin System (v0.2.0):** Easily extend the AI's capabilities by dropping Python scripts into a plugins folder.
 - **Desktop Automation:** Open websites, launch apps, play media, and search the web hands-free.
 - **Smart Notifications:** Automatically notifies you via a Telegram Bot when a background task completes.
 - **WhatsApp Integration:** Automates sending WhatsApp messages to your contacts.
-- **Video Analysis:** Can analyze video clips using computer vision to tell you what's happening.
 
 ---
 
@@ -58,6 +60,8 @@ Here are some examples of what you can ask your assistant to do:
 | **"Jarvis, open google"** | Opens google.com in your default browser |
 | **"Jarvis, open youtube"** | Opens youtube.com |
 | **"Jarvis, launch Safari"** | Opens the Safari application (Mac) |
+| **"Jarvis, read my screen"** | Takes a screenshot and reads the text visible on your screen (OCR) |
+| **"Jarvis, what's on my clipboard"** | Reads the text you currently have copied |
 | **"Jarvis, play /path/to/song.mp3"** | Plays the specified media file locally |
 | **"Jarvis, send whatsapp to +919876543210 — hello"** | Automates typing and sending a WhatsApp message |
 | **"Jarvis, search web for latest AI news"** | Opens Chrome & gives you a spoken summary of the top result |
@@ -65,7 +69,13 @@ Here are some examples of what you can ask your assistant to do:
 | **"Jarvis, send voice note — I'll be late"** | Records and sends a voice note to you on Telegram |
 | **"Jarvis, set reminder 5 minutes — drink water"** | Sets a local timer and reminds you in 5 minutes |
 | **"Jarvis, what is Python?"** | Consults its local AI Brain (Ollama) and answers your question |
-| **"Jarvis, analyse video /path/to/clip.mp4"** | Uses computer vision to tell you what's in the video |
+
+---
+
+## 🔌 Custom Plugins
+
+Want to add your own features? It's incredibly easy.
+Just drop a Python script into `~/.superai/plugins/` that registers a new function. The AI will automatically read your plugin, learn what it does, and start using it the next time you talk to it!
 
 ---
 
@@ -79,6 +89,7 @@ To run Synapse-Assistant-AI smoothly, your system needs:
   - 6 GB RAM (minimum, 8GB+ recommended)
   - ~1.5 GB free disk space (for AI models)
 - **Internet:** Only required for the first-time model download and web search commands.
+- **Screen Reading (OCR):** To use the "read screen" feature, you must have Tesseract OCR installed on your system (`brew install tesseract` on Mac, or `sudo apt install tesseract-ocr` on Ubuntu).
 
 ---
 
