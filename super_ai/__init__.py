@@ -20,8 +20,11 @@ def start_loop():
     """
     The WHOLE assistant. One function. Called by `superai` CLI.
     """
-    from .config import cfg
+    from .config import interactive_setup, cfg
     from .messaging import notify
+
+    # ── Interactive Setup (if first run) ──
+    interactive_setup()
 
     # ── Banner ──
     print()
