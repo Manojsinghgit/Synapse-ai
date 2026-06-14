@@ -93,6 +93,13 @@ To run Synapse-Assistant-AI smoothly, your system needs:
 
 ---
 
+## 🛠️ Troubleshooting
+
+- **Installation Errors (vosk / sounddevice):** If you get a "No matching distribution found" error during `pip install`, it means you are using an experimental or unsupported version of Python (like Python 3.13 or 3.14). Please install a stable release like **Python 3.12** and run `python3.12 -m pip install synapse-assistant-ai`.
+- **Command Not Found:** If `synapse-ai` says "command not found", you can always run it directly via Python: `python3 -m super_ai`.
+
+---
+
 ## 🧠 How it works under the hood
 
 ```text
