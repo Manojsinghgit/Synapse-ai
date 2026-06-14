@@ -9,7 +9,11 @@ Run:      superai
 That's it. Models auto‑download. Telegram notifications auto‑send.
 """
 
-__version__ = "0.1.0"
+import importlib.metadata
+try:
+    __version__ = importlib.metadata.version("synapse-assistant-ai")
+except importlib.metadata.PackageNotFoundError:
+    __version__ = "0.2.4"
 
 from .speech import listen, speak, check_wake_word, text_to_wav
 from .llm import ask
@@ -28,9 +32,11 @@ def start_loop():
 
     # ── Banner ──
     print()
+    ai_name = cfg.wake_word.upper()
+    title_line = f"🤖  {ai_name}   v{__version__}"
     print("╔══════════════════════════════════════════╗")
-    print("║     🤖  S U P E R - A I   v0.1.0        ║")
-    print("║     Free · Offline · Voice-Controlled    ║")
+    print(f"║{title_line.center(42)}║")
+    print("║     Free · Offline · Voice-Controlled    ║".center(44))
     print("╚══════════════════════════════════════════╝")
     print()
 

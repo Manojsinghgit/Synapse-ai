@@ -52,6 +52,15 @@ def ensure_vosk_model() -> Path:
     print(f"\n🎤 Downloading speech recognition model (one-time, ~40 MB)...")
     zip_path = cfg.models_dir / "vosk-model.zip"
 
+    # Fix for macOS SSL Certificate error
+    import ssl
+    try:
+        _create_unverified_https_context = ssl._create_unverified_context
+    except AttributeError:
+        pass
+    else:
+        ssl._create_default_https_context = _create_unverified_https_context
+
     try:
         urllib.request.urlretrieve(cfg.vosk_model_url, str(zip_path), _progress_hook)
         print()  # newline after progress bar
