@@ -5,9 +5,10 @@ Auto-installs & manages everything behind the scenes.
 User ko kuch nahi karna — sab apne aap hota hai.
 
 1. Ollama install (if missing)
+1. Ollama install (if missing)
 2. Ollama serve (background process)
-3. Model pull (llama3.2:1b)
-4. Vosk model download
+3. Model pull (llama3.2)
+4. Whisper model warmup
 """
 
 import os
@@ -40,19 +41,11 @@ def _progress_hook(block_num, block_size, total_size):
 
 
 # ═══════════════════════════════════════════════════
-#  1. Vosk Speech Model
+#  1. Whisper Speech Model
 # ═══════════════════════════════════════════════════
 
-def ensure_vosk_model() -> Path:
-    """Download Vosk speech model if not present (~40 MB)."""
-    model_path = cfg.vosk_model_path
-    if model_path.is_dir():
-        return model_path
-
-    print(f"\n🎤 Downloading speech recognition model (one-time, ~40 MB)...")
-    zip_path = cfg.models_dir / "vosk-model.zip"
-
-    # Fix for macOS SSL Certificate error
+def ensure_whisper_model():
+    """Load and warm up the Whisper model."""
     import ssl
     try:
         _create_unverified_https_context = ssl._create_unverified_context
@@ -60,22 +53,23 @@ def ensure_vosk_model() -> Path:
         pass
     else:
         ssl._create_default_https_context = _create_unverified_https_context
+        
+    print(f"\n🎤 Loading Speech Engine (Whisper)...")
+    import whisper
+    # Suppress warnings
+    import warnings
+    warnings.filterwarnings("ignore", module="whisper")
+    
+    # This will download if not present, and load into memory
+    model = whisper.load_model(cfg.whisper_model)
+    
+    # Warmup with dummy audio
+    import numpy as np
+    dummy_audio = np.zeros(16000 * 2, dtype=np.float32)
+    model.transcribe(dummy_audio, fp16=False)
+    print("   ✓ Speech Engine ready")
 
-    try:
-        urllib.request.urlretrieve(cfg.vosk_model_url, str(zip_path), _progress_hook)
-        print()  # newline after progress bar
 
-        print("   Extracting...")
-        with zipfile.ZipFile(str(zip_path), "r") as zf:
-            zf.extractall(str(cfg.models_dir))
-        zip_path.unlink()
-        print("   ✓ Speech model ready")
-    except Exception as exc:
-        if zip_path.exists():
-            zip_path.unlink()
-        raise RuntimeError(f"Failed to download Vosk model: {exc}") from exc
-
-    return model_path
 
 
 # ═══════════════════════════════════════════════════
@@ -213,35 +207,46 @@ def ensure_ollama_serving():
 # ═══════════════════════════════════════════════════
 
 def _is_model_pulled() -> bool:
-    """Check if the model is already downloaded."""
+    """Check if the exact model is already downloaded."""
     try:
         result = subprocess.run(
-            ["ollama", "list"],
+            ["ollama", "show", cfg.ollama_model],
             capture_output=True, text=True, timeout=10
         )
-        return cfg.ollama_model in result.stdout
+        return result.returncode == 0
     except Exception:
         return False
 
 
 def ensure_model_pulled():
-    """Pull the LLM model if not already present (~1.3 GB one-time)."""
+    """Pull the LLM model if not already present."""
     if _is_model_pulled():
         return
 
-    print(f"\n🧠 Downloading AI brain model (one-time, ~1.3 GB)...")
-    print(f"   Model: {cfg.ollama_model}")
-
-    result = subprocess.run(
-        ["ollama", "pull", cfg.ollama_model],
-        capture_output=False,  # show progress to user
-        text=True,
-    )
-
-    if result.returncode != 0:
-        raise RuntimeError(f"Failed to pull model {cfg.ollama_model}")
-
-    print(f"   ✓ AI brain ready")
+    print(f"\n🧠 Downloading AI Brain Engine (one-time, ~2.0 GB). Please wait...")
+    import ollama
+    
+    try:
+        # Stream the download progress
+        for progress in ollama.pull(cfg.ollama_model, stream=True):
+            if "total" in progress and "completed" in progress:
+                total = progress["total"]
+                completed = progress["completed"]
+                if total > 0:
+                    percent = int((completed / total) * 100)
+                    mb_done = completed / (1024 * 1024)
+                    mb_total = total / (1024 * 1024)
+                    bar = "█" * (percent // 2) + "░" * (50 - percent // 2)
+                    print(f"\r   [{bar}] {percent}% ({mb_done:.0f}/{mb_total:.0f} MB)", end="", flush=True)
+            elif "status" in progress:
+                # Print status updates cleanly without overriding the bar if it exists
+                status = progress["status"]
+                if "pulling" not in status: # hide the raw pulling layer hashes
+                    print(f"\r   {status.capitalize()}{' ' * 40}", end="", flush=True)
+                    
+        print("\n   ✓ AI brain ready")
+    except Exception as exc:
+        raise RuntimeError(f"Failed to download AI engine: {exc}")
 
 
 # ═══════════════════════════════════════════════════
@@ -251,14 +256,14 @@ def ensure_model_pulled():
 def ensure_all_models():
     """
     One call to set up everything:
-    1. Download Vosk speech model
+    1. Whisper model warmup
     2. Install Ollama (if missing)
     3. Start Ollama server (background)
     4. Pull LLM model (if missing)
 
     User sees progress bars. Subsequent runs skip all downloads.
     """
-    ensure_vosk_model()
+    ensure_whisper_model()
     ensure_ollama_installed()
     ensure_ollama_serving()
     ensure_model_pulled()

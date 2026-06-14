@@ -114,10 +114,14 @@ def set_reminder(text: str, seconds: int = 60) -> str:
 
 
 def send_whatsapp(phone: str, message: str) -> str:
-    """Send a WhatsApp message automatically using pywhatkit."""
+    """Send a WhatsApp message automatically, prioritizing the desktop app if installed."""
+    import time
     try:
-        import pywhatkit
+        import pyautogui
+    except ImportError:
+        return "pyautogui library is missing. Please run: pip install pyautogui"
         
+    try:
         # Resolve contact name to phone number if it exists in config
         contact_name = phone.lower().strip()
         if contact_name in cfg.whatsapp_contacts:
@@ -125,11 +129,45 @@ def send_whatsapp(phone: str, message: str) -> str:
             
         print(f"[action] Preparing to send WhatsApp message to {phone}...")
         
-        # sendwhatmsg_instantly opens whatsapp web, types the message, and presses enter.
-        pywhatkit.sendwhatmsg_instantly(phone, message, wait_time=15, tab_close=True, close_time=3)
-        return f"WhatsApp message sent to {phone}"
-    except ImportError:
-        return "pywhatkit library is not installed."
+        # Clean phone number
+        phone_clean = "".join(c for c in phone if c.isdigit() or c == "+")
+        encoded_message = urllib.parse.quote(message)
+        uri = f"whatsapp://send?phone={phone_clean}&text={encoded_message}"
+        
+        # 1. Try Desktop App using URI scheme
+        opened_desktop = False
+        system = platform.system()
+        
+        if system == "Darwin":
+            result = subprocess.run(["open", uri], capture_output=True)
+            if result.returncode == 0:
+                opened_desktop = True
+        elif system == "Windows":
+            try:
+                os.startfile(uri)
+                opened_desktop = True
+            except Exception:
+                pass
+        elif system == "Linux":
+            result = subprocess.run(["xdg-open", uri], capture_output=True)
+            if result.returncode == 0:
+                opened_desktop = True
+                
+        if opened_desktop:
+            print("[action] Opened WhatsApp Desktop App. Waiting 5 seconds to load...")
+            time.sleep(5)  # wait for app to focus and draft to load
+            pyautogui.press("enter")
+            return f"WhatsApp message sent to {phone} (via Desktop App)"
+            
+        # 2. Fallback to Browser
+        print("[action] Desktop app not found or failed. Falling back to Browser...")
+        try:
+            import pywhatkit
+            pywhatkit.sendwhatmsg_instantly(phone_clean, message, wait_time=15, tab_close=True, close_time=3)
+            return f"WhatsApp message sent to {phone} (via Browser)"
+        except ImportError:
+            return "Desktop App failed, and pywhatkit library is missing for browser fallback."
+            
     except Exception as exc:
         return f"Could not send WhatsApp message: {exc}"
 

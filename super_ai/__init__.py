@@ -13,7 +13,7 @@ import importlib.metadata
 try:
     __version__ = importlib.metadata.version("synapse-assistant-ai")
 except importlib.metadata.PackageNotFoundError:
-    __version__ = "0.2.4"
+    __version__ = "0.3.0"
 
 from .speech import listen, speak, check_wake_word, text_to_wav
 from .llm import ask
@@ -47,8 +47,8 @@ def start_loop():
 
     # ── Warm up engines ──
     print("⏳ Starting speech engine...")
-    from .speech import _ensure_vosk, _ensure_tts
-    _ensure_vosk()
+    from .speech import _ensure_whisper, _ensure_tts
+    _ensure_whisper()
     _ensure_tts()
 
     print("⏳ Starting AI brain...")

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "synapse-assistant-ai"
-version = "0.2.7"
+version = "0.3.0"
 description = "Free offline voice-controlled AI assistant. Install → Run → Talk."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -12,7 +12,8 @@ license = {text = "MIT"}
 
 dependencies = [
     # Speech-to-Text (offline)
-    "vosk",
+    "openai-whisper>=20231117",
+    "numpy",
     "sounddevice>=0.4.6",
 
     # Text-to-Speech (offline, system voices)

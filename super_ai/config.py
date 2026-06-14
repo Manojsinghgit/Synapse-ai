@@ -25,9 +25,8 @@ class Config:
     models_dir: Path = field(default_factory=lambda: MODELS_DIR)
     plugins_dir: Path = field(default_factory=lambda: PLUGINS_DIR)
 
-    # Speech Model
-    vosk_model_url: str = "https://alphacephei.com/vosk/models/vosk-model-small-en-in-0.4.zip"
-    vosk_model_name: str = "vosk-model-small-en-in-0.4"
+    # ── Speech-to-Text (Whisper) ──
+    whisper_model: str = "base"
 
     # AI Brain (upgraded to smarter 3B model to prevent hallucination)
     ollama_model: str = "llama3.2"
@@ -78,10 +77,6 @@ class Config:
         }
         with open(CONFIG_FILE, "w") as f:
             json.dump(data, f, indent=4)
-
-    @property
-    def vosk_model_path(self) -> Path:
-        return self.models_dir / self.vosk_model_name
 
 
 cfg = Config.load()

@@ -16,101 +16,147 @@ from pathlib import Path
 
 import numpy as np
 import sounddevice as sd
-from vosk import Model, KaldiRecognizer
 import pyttsx3
 
 from .config import cfg
 
 # ═══════════════════════════════════════════════════
-#  Speech‑to‑Text (Vosk)
+#  Speech‑to‑Text (Whisper + VAD)
 # ═══════════════════════════════════════════════════
 
-_vosk_model: Model | None = None
-_recognizer: KaldiRecognizer | None = None
+_whisper_model = None
 _audio_q: queue.Queue = queue.Queue()
 
 SAMPLE_RATE = 16000
+SILENCE_THRESHOLD = 0.05  # Increased energy threshold for speech (ignores bg noise)
+SILENCE_DURATION = 1.2    # Seconds of silence to consider speech finished
 
-
-def _ensure_vosk():
-    """Lazy‑load Vosk — auto‑downloads model on first call."""
-    global _vosk_model, _recognizer
-    if _vosk_model is not None:
+def _ensure_whisper():
+    """Lazy‑load Whisper model."""
+    global _whisper_model
+    if _whisper_model is not None:
         return
+        
+    import ssl
+    try:
+        ssl._create_default_https_context = ssl._create_unverified_context
+    except AttributeError:
+        pass
+        
+    import warnings
+    warnings.filterwarnings("ignore", module="whisper")
+    import whisper
 
-    from .model_manager import ensure_vosk_model
-    model_path = ensure_vosk_model()
-
-    print(f"[speech] Loading speech model...")
-    _vosk_model = Model(str(model_path))
-    _recognizer = KaldiRecognizer(_vosk_model, SAMPLE_RATE)
-    _recognizer.SetWords(True)
+    print(f"[speech] Loading Speech Engine (Whisper {cfg.whisper_model})...")
+    _whisper_model = whisper.load_model(cfg.whisper_model)
+    
+    # Warmup
+    dummy_audio = np.zeros(16000 * 1, dtype=np.float32)
+    _whisper_model.transcribe(dummy_audio, fp16=False)
     print("[speech] ✓ Speech recognition ready")
 
-
 def _mic_callback(indata, frames, time_info, status):
-    """sounddevice callback — raw PCM bytes into queue."""
+    """sounddevice callback — raw PCM float32 into queue."""
     if status:
-        print(f"[mic] {status}")
-    _audio_q.put(bytes(indata))
-
+        pass
+    _audio_q.put(indata.copy())
 
 def listen(timeout: float = 15.0) -> str | None:
     """
-    Open mic, record until Vosk hears a complete sentence
-    (or timeout). Returns transcribed text or None.
+    Open mic, use VAD to record a sentence, and transcribe using Whisper.
     """
-    _ensure_vosk()
+    _ensure_whisper()
 
     # Drain stale audio
     while not _audio_q.empty():
         _audio_q.get_nowait()
 
-    with sd.RawInputStream(
+    print("[speech] Listening...")
+    
+    with sd.InputStream(
         samplerate=SAMPLE_RATE,
-        blocksize=8000,
-        dtype="int16",
+        blocksize=4000, # 0.25 seconds chunks
+        dtype="float32",
         channels=1,
         callback=_mic_callback,
     ):
-        start = time.time()
+        start_time = time.time()
+        recording = False
+        silence_frames = 0
+        audio_buffer = []
+        pre_roll = []  # Store last 2 chunks (0.5s) of background audio
+        
         while True:
+            if time.time() - start_time > timeout and not recording:
+                return None
+                
             try:
-                data = _audio_q.get(timeout=1.0)
+                chunk = _audio_q.get(timeout=1.0)
             except queue.Empty:
-                if time.time() - start > timeout:
-                    return None
                 continue
 
-            if _recognizer.AcceptWaveform(data):
-                result = json.loads(_recognizer.Result())
-                text = result.get("text", "").strip()
-                if text:
-                    print(f"[speech] Heard: \"{text}\"")
-                    return text
+            # Calculate RMS energy
+            rms = np.sqrt(np.mean(chunk**2))
+            
+            if rms > SILENCE_THRESHOLD:
+                # User is speaking
+                if not recording:
+                    recording = True
+                    # Add pre-roll so we don't lose the quiet start of the first word (like "T" in "Tom")
+                    audio_buffer.extend(pre_roll)
+                audio_buffer.append(chunk)
+                silence_frames = 0
+            elif recording:
+                # User is quiet, but we are recording
+                audio_buffer.append(chunk)
+                silence_frames += 1
+                
+                # Check if silence duration exceeded
+                # 4000 samples @ 16000Hz = 0.25s per chunk. 1.0s = 4 chunks
+                if silence_frames >= (SILENCE_DURATION / 0.25):
+                    break
+            else:
+                # Not recording yet, keep a rolling buffer of 2 chunks
+                pre_roll.append(chunk)
+                if len(pre_roll) > 2:
+                    pre_roll.pop(0)
 
-            if time.time() - start > timeout:
-                partial = json.loads(_recognizer.PartialResult())
-                text = partial.get("partial", "").strip()
-                return text or None
+        if not audio_buffer:
+            return None
 
+        # Process recorded audio
+        audio_data = np.concatenate(audio_buffer).flatten()
+        
+        # Whisper transcription
+        # We pass the wake word as the initial_prompt so Whisper expects it
+        # and doesn't filter it out as background noise/stutter.
+        prompt = f"{cfg.wake_word}, "
+        result = _whisper_model.transcribe(audio_data, fp16=False, initial_prompt=prompt)
+        text = result.get("text", "").strip()
+        
+        if text:
+            print(f"[speech] Heard: \"{text}\"")
+            return text
+            
     return None
-
 
 def check_wake_word(text: str) -> str | None:
     """
-    If text starts with wake word, strip it and return the command.
-    Otherwise return None.
-
-    Example:
-        check_wake_word("hey ai open google")  →  "open google"
-        check_wake_word("what time is it")      →  None
+    If text starts with wake word (ignoring punctuation), return the command.
     """
-    lower = text.lower().strip()
+    import string
+    # Remove punctuation for cleaner matching
+    clean_text = text.translate(str.maketrans('', '', string.punctuation)).lower().strip()
     wake = cfg.wake_word.lower().strip()
 
-    if lower.startswith(wake):
-        command = lower[len(wake):].strip()
+    if clean_text.startswith(wake):
+        # The actual text might have punctuation, we try to strip wake word roughly
+        words = text.split()
+        if len(words) > 0 and wake in words[0].lower():
+            command = " ".join(words[1:]).strip()
+            return command if command else None
+        # Fallback
+        command = clean_text[len(wake):].strip()
         return command if command else None
     return None
 
