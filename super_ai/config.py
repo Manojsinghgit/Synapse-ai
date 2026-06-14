@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 # Models stored in ~/.superai/models/
 DATA_DIR = Path.home() / ".superai"
 MODELS_DIR = DATA_DIR / "models"
+PLUGINS_DIR = DATA_DIR / "plugins"
 CONFIG_FILE = DATA_DIR / "config.json"
 
 
@@ -22,6 +23,7 @@ class Config:
     # Paths
     data_dir: Path = field(default_factory=lambda: DATA_DIR)
     models_dir: Path = field(default_factory=lambda: MODELS_DIR)
+    plugins_dir: Path = field(default_factory=lambda: PLUGINS_DIR)
 
     # Speech Model
     vosk_model_url: str = "https://alphacephei.com/vosk/models/vosk-model-small-en-in-0.4.zip"
@@ -48,6 +50,7 @@ class Config:
     def load(cls) -> "Config":
         DATA_DIR.mkdir(parents=True, exist_ok=True)
         MODELS_DIR.mkdir(parents=True, exist_ok=True)
+        PLUGINS_DIR.mkdir(parents=True, exist_ok=True)
 
         c = cls()
         if CONFIG_FILE.exists():

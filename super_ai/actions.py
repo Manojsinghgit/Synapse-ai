@@ -12,6 +12,7 @@ import webbrowser
 import subprocess
 import platform
 import urllib.parse
+import importlib.util
 from pathlib import Path
 from datetime import datetime, timedelta
 
@@ -156,8 +157,48 @@ def search_web(query: str) -> str:
         return f"Could not search the web: {exc}"
 
 
+def read_clipboard() -> str:
+    """Reads the current text from the clipboard."""
+    try:
+        import pyperclip
+        text = pyperclip.paste()
+        if not text.strip():
+            return "The clipboard is empty."
+        return f"Clipboard content: {text[:500]}"
+    except ImportError:
+        return "pyperclip library is not installed."
+    except Exception as exc:
+        return f"Could not read clipboard: {exc}"
+
+
+def read_screen() -> str:
+    """Takes a screenshot and reads the text on the screen using OCR."""
+    try:
+        from PIL import ImageGrab
+        import pytesseract
+        
+        img = ImageGrab.grab()
+        text = pytesseract.image_to_string(img)
+        if not text.strip():
+            return "No readable text found on the screen."
+        return f"Screen text: {text[:1000]}"
+    except ImportError:
+        return "Pillow or pytesseract libraries are not installed."
+    except Exception as exc:
+        if "tesseract is not installed" in str(exc).lower():
+            import platform
+            sys_name = platform.system()
+            if sys_name == "Darwin":
+                return "Tesseract OCR is missing. Install it using: brew install tesseract"
+            elif sys_name == "Windows":
+                return "Tesseract OCR is missing. Please install it from https://github.com/UB-Mannheim/tesseract/wiki"
+            else:
+                return "Tesseract OCR is missing. Install it using: sudo apt install tesseract-ocr"
+        return f"Could not read screen: {exc}"
+
+
 # ═══════════════════════════════════════════════════
-#  Dispatcher
+#  Dispatcher & Plugins
 # ═══════════════════════════════════════════════════
 
 _ACTION_MAP = {
@@ -170,7 +211,29 @@ _ACTION_MAP = {
     "set_reminder": set_reminder,
     "send_whatsapp": send_whatsapp,
     "search_web": search_web,
+    "read_clipboard": read_clipboard,
+    "read_screen": read_screen,
 }
+
+_DYNAMIC_TOOL_SCHEMAS = []
+
+def load_plugins():
+    """Load user plugins from the plugins directory."""
+    for file_path in cfg.plugins_dir.glob("*.py"):
+        try:
+            spec = importlib.util.spec_from_file_location(file_path.stem, file_path)
+            module = importlib.util.module_from_spec(spec)
+            if spec.loader:
+                spec.loader.exec_module(module)
+                
+                if hasattr(module, "register_plugin"):
+                    module.register_plugin(_ACTION_MAP, _DYNAMIC_TOOL_SCHEMAS)
+                    print(f"[plugins] Loaded {file_path.name}")
+        except Exception as exc:
+            print(f"[plugins] Error loading {file_path.name}: {exc}")
+
+# Load plugins on module import
+load_plugins()
 
 
 def run_action(action_data: dict) -> str:

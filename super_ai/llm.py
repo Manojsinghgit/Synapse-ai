@@ -10,12 +10,14 @@ from typing import Any
 import ollama as _ollama
 
 from .config import cfg
+from .actions import _DYNAMIC_TOOL_SCHEMAS
 
 # ═══════════════════════════════════════════════════
 #  System prompt — tool‑call contract
 # ═══════════════════════════════════════════════════
 
-SYSTEM_PROMPT = """\
+def get_system_prompt() -> str:
+    base_prompt = """\
 You are Super-AI, a helpful voice assistant on the user's computer.
 The user speaks in Hindi-English mix. Reply in simple English. Keep answers SHORT (1-2 sentences).
 
@@ -32,11 +34,20 @@ Available tools:
 - set_reminder: {"text": "what", "seconds": 60} — sets a reminder
 - send_whatsapp: {"phone": "+919876543210", "message": "hello"} — sends a WhatsApp message (use exact phone number with country code, or a saved contact name)
 - search_web: {"query": "weather in Delhi"} — searches the internet for real-time information
-
+- read_clipboard: {} — reads the current text from the clipboard
+- read_screen: {} — uses OCR to read the text currently visible on the screen"""
+    
+    if _DYNAMIC_TOOL_SCHEMAS:
+        base_prompt += "\n" + "\n".join(_DYNAMIC_TOOL_SCHEMAS)
+        
+    base_prompt += """\n
 If the user is just asking a question and you don't know the answer, use the search_web tool instead of making it up. Be brief.\
 """
+    return base_prompt
 
 _warmed_up = False
+_conversation_history = []
+MAX_HISTORY = 6  # keep last 6 messages (3 turns)
 
 
 def _ensure_llm():
@@ -68,13 +79,18 @@ def ask(user_input: str) -> dict | str:
     """
     _ensure_llm()
 
+    global _conversation_history
+    
+    messages = [{"role": "system", "content": get_system_prompt()}]
+    for msg in _conversation_history:
+        messages.append(msg)
+        
+    messages.append({"role": "user", "content": user_input})
+
     try:
         response = _ollama.chat(
             model=cfg.ollama_model,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_input},
-            ],
+            messages=messages,
             options={
                 "temperature": 0.3,
                 "num_predict": 200,
@@ -96,6 +112,8 @@ def ask(user_input: str) -> dict | str:
 
     start = cleaned.find("{")
     end = cleaned.rfind("}") + 1
+    
+    is_action = False
     if start >= 0 and end > start:
         try:
             parsed = json.loads(cleaned[start:end])
@@ -103,5 +121,11 @@ def ask(user_input: str) -> dict | str:
                 return parsed
         except (json.JSONDecodeError, ValueError):
             pass
+
+    # Update history for plain text responses
+    _conversation_history.append({"role": "user", "content": user_input})
+    _conversation_history.append({"role": "assistant", "content": text})
+    if len(_conversation_history) > MAX_HISTORY:
+        _conversation_history = _conversation_history[-MAX_HISTORY:]
 
     return text

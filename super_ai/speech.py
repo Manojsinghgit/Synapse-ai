@@ -10,6 +10,8 @@ import queue
 import time
 import os
 import tempfile
+import platform
+import subprocess
 from pathlib import Path
 
 import numpy as np
@@ -138,8 +140,17 @@ def _ensure_tts():
 
 def speak(text: str):
     """Speak text aloud (blocking)."""
-    _ensure_tts()
     print(f"[ai] {text}")
+    
+    if platform.system() == "Darwin":
+        try:
+            # Use macOS native 'say' command for natural Siri voice
+            subprocess.run(["say", text])
+            return
+        except Exception:
+            pass # fallback to pyttsx3
+
+    _ensure_tts()
     _tts_engine.say(text)
     _tts_engine.runAndWait()
 
