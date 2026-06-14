@@ -63,7 +63,7 @@ def _run_async(coro):
 def send_text(chat_id: str, text: str) -> str:
     """Send a plain text message via Telegram."""
     if not _is_configured():
-        return "Telegram not configured. Add TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID to .env"
+        return "Telegram not configured. Please add your Bot Token and Chat ID in ~/.superai/config.json"
 
     chat_id = _resolve_chat_id(chat_id)
     bot = _get_bot()
@@ -85,7 +85,7 @@ def send_text(chat_id: str, text: str) -> str:
 def send_voice(chat_id: str, audio_path: str) -> str:
     """Send a voice note via Telegram."""
     if not _is_configured():
-        return "Telegram not configured. Add TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID to .env"
+        return "Telegram not configured. Please add your Bot Token and Chat ID in ~/.superai/config.json"
 
     chat_id = _resolve_chat_id(chat_id)
     bot = _get_bot()

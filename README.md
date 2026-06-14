@@ -15,7 +15,12 @@ pip install .
 superai
 ```
 
-The first time you run it, it will ask you what you want to name your AI (e.g., Jarvis, Friday) and if you want to set up Telegram notifications. Then it will auto-download the necessary AI files (~1.1 GB, one-time only).
+The first time you run it, an interactive setup will start right in your terminal:
+- It will ask what you want to name your AI (e.g., Jarvis, Friday).
+- It will ask if you want to set up Telegram notifications.
+- **You simply paste your Telegram Bot Token and Chat ID directly in the terminal** when prompted.
+
+Once setup is done, your AI will automatically message you on Telegram whenever it finishes a background task. Then it will auto-download the necessary AI files (~1.1 GB, one-time only).
 
 After that, it starts instantly. Just talk:
 
