@@ -38,7 +38,8 @@ Run the assistant from your terminal:
 ```bash
 synapse-ai
 ```
-*(Alternatively, you can also use the `superai` command).*
+
+*(Note: If `synapse-ai` says "command not found", you can run it perfectly using `python3 -m super_ai` or fix it permanently by running `python3 -m super_ai setup`)*
 
 **First-Time Interactive Setup:**
 The first time you run the command, an interactive setup will start right in your terminal:
@@ -96,7 +97,9 @@ To run Synapse-Assistant-AI smoothly, your system needs:
 ## 🛠️ Troubleshooting
 
 - **Installation Errors (vosk / sounddevice):** If you get a "No matching distribution found" error during `pip install`, it means you are using an experimental or unsupported version of Python (like Python 3.13 or 3.14). Please install a stable release like **Python 3.12** and run `python3.12 -m pip install synapse-assistant-ai`.
-- **Command Not Found:** If `synapse-ai` says "command not found", you can always run it directly via Python: `python3 -m super_ai`.
+- **Command Not Found:** If `synapse-ai` says "command not found" (often happens on Windows or default macOS setups due to PATH settings), you have two easy fixes:
+  1. **Run directly:** `python3 -m super_ai`
+  2. **Permanent Fix (Auto-Setup):** Run `python3 -m super_ai setup`. It will automatically add the tool to your System PATH so `synapse-ai` works flawlessly.
 
 ---
 
