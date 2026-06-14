@@ -262,6 +262,10 @@ def run_action(action_data: dict) -> str:
     action_name = action_data.get("action", "")
     args = action_data.get("args", {})
 
+    # Robustness: LLM sometimes puts arguments at the top level instead of inside "args"
+    if not args:
+        args = {k: v for k, v in action_data.items() if k not in ("action", "args")}
+
     func = _ACTION_MAP.get(action_name)
     if func is None:
         supported = ", ".join(sorted(_ACTION_MAP.keys()))

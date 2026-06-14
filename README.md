@@ -12,6 +12,7 @@ Synapse-Assistant-AI is a completely offline, privacy-first, voice-controlled AI
 - **Voice-Controlled:** Always listening for its wake word (e.g., "Jarvis", "Friday", or your custom name).
 - **Conversational Chat (v0.2.6):** It's not just a strict bot! You can talk to it freely (e.g., "Write a song for me", "Tell me a joke", "Solve this math problem") and it replies naturally using its LLM brain.
 - **Smart Clarifications (v0.2.6):** If you ask it to perform a task but forget to give details (like "Send a WhatsApp message" without a phone number), it will politely ask you for the missing information before executing.
+- **Smarter Brain & Robust Parsing (v0.2.7):** Upgraded the core LLM from 1B to the drastically smarter **Llama 3.2 3B** parameter model for flawless instruction following and Hindi/Hinglish comprehension. Added a robust fallback JSON parser so desktop automation never crashes.
 - **Context Memory:** Remembers your recent conversation history so you can ask follow-up questions naturally.
 - **Vision & Clipboard:** Can read your screen (OCR) and read your copied clipboard text.
 - **Plugin System:** Easily extend the AI's capabilities by dropping Python scripts into a plugins folder.
@@ -53,7 +54,7 @@ synapse-ai
 The first time you run the command, an interactive setup will start right in your terminal:
 1. **Name your AI:** Choose a wake word (e.g., Jarvis, Friday, or Hey AI).
 2. **Telegram Notifications (Optional):** If you want to receive task completion alerts on your phone, you will be prompted to paste your Telegram Bot Token and Chat ID directly in the terminal. **No `.env` editing required!**
-3. **Model Download:** It will auto-download the necessary AI voice models (~1.1 GB, one-time only).
+3. **Model Download:** It will auto-download the necessary AI voice models (~2.1 GB, one-time only).
 
 After that, it starts instantly. Just say your wake word:
 > **"Jarvis, open youtube"**

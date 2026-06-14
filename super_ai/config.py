@@ -29,8 +29,8 @@ class Config:
     vosk_model_url: str = "https://alphacephei.com/vosk/models/vosk-model-small-en-in-0.4.zip"
     vosk_model_name: str = "vosk-model-small-en-in-0.4"
 
-    # AI Brain
-    ollama_model: str = "llama3.2:1b"
+    # AI Brain (upgraded to smarter 3B model to prevent hallucination)
+    ollama_model: str = "llama3.2"
 
     # Wake word
     wake_word: str = "hey ai"
