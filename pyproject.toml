@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "superai"
+version = "0.1.0"
+description = "Free offline voice-controlled AI assistant. Install → Run → Talk."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+
+dependencies = [
+    # Speech-to-Text (offline)
+    "vosk>=0.3.45",
+    "sounddevice>=0.4.6",
+
+    # Text-to-Speech (offline, system voices)
+    "pyttsx3>=2.90",
+
+    # LLM client (talks to auto-managed Ollama)
+    "ollama>=0.4.0",
+
+    # Telegram (optional at runtime, installed so it's ready)
+    "python-telegram-bot>=21.0",
+
+    # Video analysis (optional at runtime)
+    "opencv-python-headless>=4.8.0",
+    "ultralytics>=8.2.0",
+    "pytesseract>=0.3.10",
+
+    # Scheduler
+    "apscheduler>=3.10.0",
+
+    # Config
+    "python-dotenv>=1.0.0",
+
+    # WhatsApp & Web Search
+    "pywhatkit>=5.4",
+    "duckduckgo-search>=5.0",
+
+    # Utilities
+    "numpy",
+]
+
+[project.scripts]
+superai = "super_ai:start_loop"
+
+[tool.setuptools.packages.find]
+include = ["super_ai*"]
