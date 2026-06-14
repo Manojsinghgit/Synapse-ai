@@ -10,9 +10,11 @@ Synapse-Assistant-AI is a completely offline, privacy-first, voice-controlled AI
 
 - **100% Offline & Private:** Uses local LLMs (via Ollama) and offline Speech-to-Text (Vosk). No API keys, no internet required (except for initial setup and web searches).
 - **Voice-Controlled:** Always listening for its wake word (e.g., "Jarvis", "Friday", or your custom name).
-- **Context Memory (v0.2.0):** Remembers your recent conversation history so you can ask follow-up questions naturally.
-- **Vision & Clipboard (v0.2.0):** Can read your screen (OCR) and read your copied clipboard text.
-- **Plugin System (v0.2.0):** Easily extend the AI's capabilities by dropping Python scripts into a plugins folder.
+- **Conversational Chat (v0.2.6):** It's not just a strict bot! You can talk to it freely (e.g., "Write a song for me", "Tell me a joke", "Solve this math problem") and it replies naturally using its LLM brain.
+- **Smart Clarifications (v0.2.6):** If you ask it to perform a task but forget to give details (like "Send a WhatsApp message" without a phone number), it will politely ask you for the missing information before executing.
+- **Context Memory:** Remembers your recent conversation history so you can ask follow-up questions naturally.
+- **Vision & Clipboard:** Can read your screen (OCR) and read your copied clipboard text.
+- **Plugin System:** Easily extend the AI's capabilities by dropping Python scripts into a plugins folder.
 - **Desktop Automation:** Open websites, launch apps, play media, and search the web hands-free.
 - **Smart Notifications:** Automatically notifies you via a Telegram Bot when a background task completes.
 - **WhatsApp Integration:** Automates sending WhatsApp messages to your contacts.
@@ -75,6 +77,8 @@ Here are some examples of what you can ask your assistant to do:
 | **"Jarvis, send message — meeting at 5"** | Sends a text message to your configured Telegram chat |
 | **"Jarvis, send voice note — I'll be late"** | Records and sends a voice note to you on Telegram |
 | **"Jarvis, set reminder 5 minutes — drink water"** | Sets a local timer and reminds you in 5 minutes |
+| **"Jarvis, what is the time?"** | Instantly tells you the current local time |
+| **"Jarvis, can you write a short poem?"** | Replies naturally with a generated poem using its LLM brain |
 | **"Jarvis, what is Python?"** | Consults its local AI Brain (Ollama) and answers your question |
 
 ---

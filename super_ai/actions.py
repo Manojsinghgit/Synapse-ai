@@ -134,6 +134,12 @@ def send_whatsapp(phone: str, message: str) -> str:
         return f"Could not send WhatsApp message: {exc}"
 
 
+def get_time() -> str:
+    """Gets the current date and time locally."""
+    now = datetime.now().strftime("%I:%M %p, %A, %B %d, %Y")
+    return f"The current time is {now}."
+
+
 def search_web(query: str) -> str:
     """Search the web using duckduckgo-search and open the browser so the user can see."""
     try:
@@ -213,6 +219,7 @@ _ACTION_MAP = {
     "search_web": search_web,
     "read_clipboard": read_clipboard,
     "read_screen": read_screen,
+    "get_time": get_time,
 }
 
 _DYNAMIC_TOOL_SCHEMAS = []
