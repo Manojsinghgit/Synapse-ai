@@ -7,16 +7,8 @@ def setup_path():
     import site
     from pathlib import Path
 
-    # Determine where the executable/script should be installed
-    bin_path = Path(sys.executable).parent
-    
-    # Check OS specific pathing
-    if os.name == 'nt':
-        if not bin_path.joinpath("synapse-ai.exe").exists():
-            bin_path = Path(site.getuserbase()) / "Scripts"
-    else:
-        if not bin_path.joinpath("synapse-ai").exists():
-            bin_path = Path(site.getuserbase()) / "bin"
+    import sysconfig
+    bin_path = Path(sysconfig.get_path("scripts"))
 
     if os.name == 'nt':
         # Windows PATH setup using registry

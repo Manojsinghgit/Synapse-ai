@@ -21,13 +21,19 @@ Synapse-Assistant-AI is a completely offline, privacy-first, voice-controlled AI
 
 ## 🚀 Installation
 
-It takes just one command to install the assistant from PyPI:
+Ensure you have Python 3.10 or higher installed.
 
-```bash
+**For Windows:**
+```cmd
 pip install synapse-assistant-ai
 ```
 
-*(Note: Ensure you have Python 3.10+ installed on your system).*
+**For macOS / Linux:**
+```bash
+pip3 install synapse-assistant-ai
+```
+
+*(Note: On macOS and Linux, you might need to use `pip3` instead of `pip` depending on your setup).*
 
 ---
 
@@ -39,7 +45,7 @@ Run the assistant from your terminal:
 synapse-ai
 ```
 
-*(Note: If `synapse-ai` says "command not found", you can run it perfectly using `python3 -m super_ai` or fix it permanently by running `python3 -m super_ai setup`)*
+*(Note: If `synapse-ai` says "command not found", scroll down to the Troubleshooting section below to fix it permanently!)*
 
 **First-Time Interactive Setup:**
 The first time you run the command, an interactive setup will start right in your terminal:
@@ -97,9 +103,19 @@ To run Synapse-Assistant-AI smoothly, your system needs:
 ## 🛠️ Troubleshooting
 
 - **Installation Errors (vosk / sounddevice):** If you get a "No matching distribution found" error during `pip install`, it means you are using an experimental or unsupported version of Python (like Python 3.13 or 3.14). Please install a stable release like **Python 3.12** and run `python3.12 -m pip install synapse-assistant-ai`.
-- **Command Not Found:** If `synapse-ai` says "command not found" (often happens on Windows or default macOS setups due to PATH settings), you have two easy fixes:
-  1. **Run directly:** `python3 -m super_ai`
-  2. **Permanent Fix (Auto-Setup):** Run `python3 -m super_ai setup`. It will automatically add the tool to your System PATH so `synapse-ai` works flawlessly.
+- **Command Not Found Error:** If your terminal says `command not found: synapse-ai`, it means your system's PATH is not configured for Python CLI tools. We have built an automated setup to fix this!
+
+  **For Windows Users:**
+  1. Open your Command Prompt or PowerShell.
+  2. Run the auto-setup command: `python -m super_ai setup`
+  3. Close and reopen your Command Prompt. You can now use the `synapse-ai` command forever!
+
+  **For macOS / Linux Users:**
+  1. Open your Terminal.
+  2. Run the auto-setup command: `python3 -m super_ai setup`
+  3. Restart your terminal or run `source ~/.zshrc` (or `source ~/.bashrc` on Linux). You can now use the `synapse-ai` command flawlessly!
+
+  *(Fallback: If you still face issues, you can always run the assistant directly from anywhere by typing `python3 -m super_ai` or `python -m super_ai`)*
 
 ---
 
