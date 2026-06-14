@@ -3,7 +3,7 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.backends._legacy:_Backend"
 
 [project]
-name = "superai"
+name = "synapse-ai"
 version = "0.1.0"
 description = "Free offline voice-controlled AI assistant. Install → Run → Talk."
 readme = "README.md"
@@ -44,6 +44,7 @@ dependencies = [
 ]
 
 [project.scripts]
+synapse-ai = "super_ai:start_loop"
 superai = "super_ai:start_loop"
 
 [tool.setuptools.packages.find]
