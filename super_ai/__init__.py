@@ -13,7 +13,7 @@ import importlib.metadata
 try:
     __version__ = importlib.metadata.version("synapse-assistant-ai")
 except importlib.metadata.PackageNotFoundError:
-    __version__ = "0.3.1"
+    __version__ = "0.3.2"
 
 from .speech import listen, speak, check_wake_word, text_to_wav
 from .llm import ask
