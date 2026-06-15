@@ -241,6 +241,66 @@ def read_screen() -> str:
         return f"Could not read screen: {exc}"
 
 
+def play_youtube(query: str) -> str:
+    """Instantly play a video on YouTube matching the query."""
+    try:
+        import pywhatkit
+        pywhatkit.playonyt(query)
+        return f"Playing {query} on YouTube."
+    except ImportError:
+        return "pywhatkit library is missing."
+    except Exception as exc:
+        return f"Could not play YouTube video: {exc}"
+
+
+def get_wikipedia_summary(query: str) -> str:
+    """Fetch a short summary from Wikipedia."""
+    try:
+        import wikipedia
+        # To avoid ambiguous exceptions, we just auto-suggest the top match if ambiguous
+        try:
+            summary = wikipedia.summary(query, sentences=2)
+            return summary
+        except wikipedia.exceptions.DisambiguationError as e:
+            # Pick the first option
+            summary = wikipedia.summary(e.options[0], sentences=2)
+            return summary
+    except ImportError:
+        return "wikipedia library is missing."
+    except Exception as exc:
+        return f"Could not fetch Wikipedia: {exc}"
+
+
+def get_weather(location: str) -> str:
+    """Get the current weather for a location using wttr.in."""
+    try:
+        import requests
+        import urllib.parse
+        encoded_loc = urllib.parse.quote(location)
+        # Format 3 gives simple string like: London: ⛅️ +15°C
+        url = f"https://wttr.in/{encoded_loc}?format=3"
+        response = requests.get(url, timeout=5)
+        if response.status_code == 200:
+            return response.text.strip()
+        return f"Could not get weather for {location}."
+    except ImportError:
+        return "requests library is missing."
+    except Exception as exc:
+        return f"Weather error: {exc}"
+
+
+def tell_joke() -> str:
+    """Tell a funny joke."""
+    try:
+        import pyjokes
+        joke = pyjokes.get_joke()
+        return joke
+    except ImportError:
+        return "pyjokes library is missing."
+    except Exception as exc:
+        return f"Could not get a joke: {exc}"
+
+
 # ═══════════════════════════════════════════════════
 #  Dispatcher & Plugins
 # ═══════════════════════════════════════════════════
@@ -258,6 +318,10 @@ _ACTION_MAP = {
     "read_clipboard": read_clipboard,
     "read_screen": read_screen,
     "get_time": get_time,
+    "play_youtube": play_youtube,
+    "get_wikipedia_summary": get_wikipedia_summary,
+    "get_weather": get_weather,
+    "tell_joke": tell_joke,
 }
 
 _DYNAMIC_TOOL_SCHEMAS = []
@@ -311,6 +375,20 @@ def run_action(action_data: dict) -> str:
 
     try:
         print(f"[action] ▶ {action_name}({args})")
+
+        # ── Normalize common LLM mistakes in arg naming ──
+        if action_name == "send_message":
+            # LLM sometimes sends "message" instead of "body"
+            if "message" in args and "body" not in args:
+                args["body"] = args.pop("message")
+        elif action_name == "send_whatsapp":
+            # LLM sometimes sends "body" instead of "message"
+            if "body" in args and "message" not in args:
+                args["message"] = args.pop("body")
+            # LLM sometimes sends "to" instead of "phone"
+            if "to" in args and "phone" not in args:
+                args["phone"] = args.pop("to")
+
         result = func(**args)
         print(f"[action] ✓ {result}")
 

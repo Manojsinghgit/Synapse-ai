@@ -13,7 +13,7 @@ import importlib.metadata
 try:
     __version__ = importlib.metadata.version("synapse-assistant-ai")
 except importlib.metadata.PackageNotFoundError:
-    __version__ = "0.3.0"
+    __version__ = "0.3.1"
 
 from .speech import listen, speak, check_wake_word, text_to_wav
 from .llm import ask
@@ -58,52 +58,83 @@ def start_loop():
     # ── Ready ──
     print()
     print("═" * 44)
-    print(f"  ✅ READY! Say \"{cfg.wake_word}\" + command")
-    print(f"  Example: \"{cfg.wake_word} open youtube\"")
+    print(f"  ✅ READY! Jarvis Mode (Always Listening)")
+    print(f'  Say "{cfg.wake_word}" to talk, or just chat')
     print(f"  Press Ctrl+C to quit")
     print("═" * 44)
     print()
 
-    speak(f"Super AI is ready. Say {cfg.wake_word} followed by your command.")
+    speak(f"{cfg.wake_word.capitalize()} is online. I'm listening.")
 
     # Notify on Telegram that AI is online
-    notify("🟢 Super-AI is now online and listening!")
+    notify(f"🟢 {cfg.wake_word.capitalize()} is now online and listening!")
 
-    # ── Main loop — runs forever until Ctrl+C ──
+    # ── Main loop — Jarvis mode ──
+    expect_followup = False
+    consecutive_ignores = 0
+
     while True:
         try:
-            # 1. Listen
-            text = listen(timeout=15)
+            # 1. Listen ambiently
+            #    When expecting a follow-up, use shorter timeout so user feels responsiveness
+            t = 10 if expect_followup else 15
+            text = listen(timeout=t)
+
             if not text:
+                # Silence timeout
+                if expect_followup:
+                    # User didn't reply after AI asked a question — reset
+                    expect_followup = False
                 continue
 
-            # 2. Wake word?
-            command = check_wake_word(text)
-            if command is None:
-                continue  # not for us
+            # 2. Send to LLM — it decides whether to IGNORE or respond
+            response = ask(text, expect_followup=expect_followup)
 
-            print(f"\n🎯 Command: \"{command}\"")
+            # 3. Handle IGNORE
+            if isinstance(response, str) and response.strip().upper() == "IGNORE":
+                consecutive_ignores += 1
+                # Don't flood the terminal with IGNORE logs
+                if consecutive_ignores <= 3:
+                    print(f"   ↳ (ignored background noise)")
+                continue
 
-            # 3. Ask LLM
-            response = ask(command)
+            consecutive_ignores = 0
+            print(f"\n🎯 Responding to: \"{text}\"")
 
-            # 4. Execute or speak
+            # 4. Execute tool or speak response
             if isinstance(response, dict):
-                # Tool‑call → run action → speak result → Telegram notify (auto)
+                # Tool call → execute → speak result
                 result = run_action(response)
                 speak(result)
+                # After a completed action, don't expect immediate follow-up
+                expect_followup = False
             else:
-                # Plain answer → speak it
+                # Conversational reply → speak it
                 speak(response)
+
+                # Detect if AI asked a follow-up question
+                resp_lower = response.strip().lower()
+                if (response.strip().endswith("?")
+                    or "kisko" in resp_lower
+                    or "kya " in resp_lower
+                    or "kaun" in resp_lower
+                    or "which" in resp_lower
+                    or "what " in resp_lower
+                    or "who " in resp_lower):
+                    expect_followup = True
+                else:
+                    expect_followup = False
 
             print()
 
         except KeyboardInterrupt:
             print("\n\n👋 Shutting down...")
             speak("Goodbye!")
-            notify("🔴 Super-AI is now offline.")
+            notify(f"🔴 {cfg.wake_word.capitalize()} is now offline.")
             break
         except Exception as exc:
             print(f"[error] {exc}")
-            speak("Sorry, something went wrong.")
-            notify(f"⚠️ Error: {exc}")
+            import traceback
+            traceback.print_exc()
+            # Don't crash the whole loop for one error
+            expect_followup = False

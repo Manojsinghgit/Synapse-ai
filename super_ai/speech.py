@@ -1,8 +1,8 @@
 """
 super_ai.speech
 ───────────────
-Voice Input  : Vosk (offline, auto‑downloads model)
-Voice Output : pyttsx3 (system TTS, zero setup)
+Voice Input  : OpenAI Whisper (offline, auto-downloads model)
+Voice Output : macOS `say` command (natural Siri voice) with pyttsx3 fallback
 """
 
 import json
@@ -12,6 +12,7 @@ import os
 import tempfile
 import platform
 import subprocess
+import threading
 from pathlib import Path
 
 import numpy as np
@@ -28,32 +29,38 @@ _whisper_model = None
 _audio_q: queue.Queue = queue.Queue()
 
 SAMPLE_RATE = 16000
-SILENCE_THRESHOLD = 0.05  # Increased energy threshold for speech (ignores bg noise)
-SILENCE_DURATION = 1.2    # Seconds of silence to consider speech finished
+SILENCE_THRESHOLD = 0.04   # RMS energy threshold (slightly lower to catch soft "Tom")
+SILENCE_DURATION = 1.5     # Seconds of silence to consider speech done
+MIN_AUDIO_LENGTH = 0.5     # Minimum seconds of audio to bother transcribing
+
+# Flag to pause listening while the AI is speaking (prevent echo)
+_speaking = False
+
 
 def _ensure_whisper():
     """Lazy‑load Whisper model."""
     global _whisper_model
     if _whisper_model is not None:
         return
-        
+
     import ssl
     try:
         ssl._create_default_https_context = ssl._create_unverified_context
     except AttributeError:
         pass
-        
+
     import warnings
     warnings.filterwarnings("ignore", module="whisper")
     import whisper
 
     print(f"[speech] Loading Speech Engine (Whisper {cfg.whisper_model})...")
     _whisper_model = whisper.load_model(cfg.whisper_model)
-    
-    # Warmup
+
+    # Warmup with silent audio
     dummy_audio = np.zeros(16000 * 1, dtype=np.float32)
     _whisper_model.transcribe(dummy_audio, fp16=False)
     print("[speech] ✓ Speech recognition ready")
+
 
 def _mic_callback(indata, frames, time_info, status):
     """sounddevice callback — raw PCM float32 into queue."""
@@ -61,21 +68,24 @@ def _mic_callback(indata, frames, time_info, status):
         pass
     _audio_q.put(indata.copy())
 
+
 def listen(timeout: float = 15.0) -> str | None:
     """
-    Open mic, use VAD to record a sentence, and transcribe using Whisper.
+    Open mic, use VAD to detect speech, and transcribe using Whisper.
+    Returns transcribed text or None if nothing heard.
     """
+    global _speaking
     _ensure_whisper()
 
-    # Drain stale audio
+    # Drain stale audio from previous rounds
     while not _audio_q.empty():
         _audio_q.get_nowait()
 
     print("[speech] Listening...")
-    
+
     with sd.InputStream(
         samplerate=SAMPLE_RATE,
-        blocksize=4000, # 0.25 seconds chunks
+        blocksize=4000,  # 0.25 second chunks
         dtype="float32",
         channels=1,
         callback=_mic_callback,
@@ -84,61 +94,84 @@ def listen(timeout: float = 15.0) -> str | None:
         recording = False
         silence_frames = 0
         audio_buffer = []
-        pre_roll = []  # Store last 2 chunks (0.5s) of background audio
-        
+        pre_roll = []  # Rolling buffer: last 3 chunks (0.75s) to catch soft starts
+
         while True:
+            # Timeout only applies when NOT actively recording
             if time.time() - start_time > timeout and not recording:
                 return None
-                
+
             try:
                 chunk = _audio_q.get(timeout=1.0)
             except queue.Empty:
                 continue
 
+            # Skip audio while the assistant is speaking (prevents echo loops)
+            if _speaking:
+                continue
+
             # Calculate RMS energy
             rms = np.sqrt(np.mean(chunk**2))
-            
+
             if rms > SILENCE_THRESHOLD:
-                # User is speaking
+                # Speech detected
                 if not recording:
                     recording = True
-                    # Add pre-roll so we don't lose the quiet start of the first word (like "T" in "Tom")
+                    # Prepend the pre-roll buffer so we capture the soft start
+                    # of words like "Tom" where the "T" is quiet
                     audio_buffer.extend(pre_roll)
                 audio_buffer.append(chunk)
                 silence_frames = 0
             elif recording:
-                # User is quiet, but we are recording
+                # Still recording, but this chunk is silence
                 audio_buffer.append(chunk)
                 silence_frames += 1
-                
-                # Check if silence duration exceeded
-                # 4000 samples @ 16000Hz = 0.25s per chunk. 1.0s = 4 chunks
-                if silence_frames >= (SILENCE_DURATION / 0.25):
+
+                # 4000 samples @ 16000Hz = 0.25s per chunk
+                chunks_for_silence = int(SILENCE_DURATION / 0.25)
+                if silence_frames >= chunks_for_silence:
                     break
             else:
-                # Not recording yet, keep a rolling buffer of 2 chunks
+                # Not recording yet — maintain rolling pre-roll buffer
                 pre_roll.append(chunk)
-                if len(pre_roll) > 2:
+                if len(pre_roll) > 3:
                     pre_roll.pop(0)
 
         if not audio_buffer:
             return None
 
-        # Process recorded audio
+        # Check minimum audio length
         audio_data = np.concatenate(audio_buffer).flatten()
-        
-        # Whisper transcription
-        # We pass the wake word as the initial_prompt so Whisper expects it
-        # and doesn't filter it out as background noise/stutter.
+        duration = len(audio_data) / SAMPLE_RATE
+        if duration < MIN_AUDIO_LENGTH:
+            return None
+
+        # ── Whisper transcription ──
+        # initial_prompt biases Whisper to expect the wake word
         prompt = f"{cfg.wake_word}, "
-        result = _whisper_model.transcribe(audio_data, fp16=False, initial_prompt=prompt)
+        result = _whisper_model.transcribe(
+            audio_data,
+            fp16=False,
+            initial_prompt=prompt,
+            language="en",  # Primary language (Whisper still handles Hindi phonetics)
+        )
         text = result.get("text", "").strip()
-        
+
+        # Filter out Whisper hallucinations (common with short/noisy audio)
+        _hallucinations = {
+            "thanks for watching", "thank you", "thank you.", "thanks for watching!",
+            "you", "bye", "the end", "subtitle", "subtitles",
+            ".", "", "...", "uh", "um",
+        }
+        if text.lower().strip(".,!? ") in _hallucinations:
+            return None
+
         if text:
-            print(f"[speech] Heard: \"{text}\"")
+            print(f'[speech] Heard: "{text}"')
             return text
-            
+
     return None
+
 
 def check_wake_word(text: str) -> str | None:
     """
@@ -162,7 +195,7 @@ def check_wake_word(text: str) -> str | None:
 
 
 # ═══════════════════════════════════════════════════
-#  Text‑to‑Speech (pyttsx3 — zero setup)
+#  Text‑to‑Speech (macOS `say` + pyttsx3 fallback)
 # ═══════════════════════════════════════════════════
 
 _tts_engine: pyttsx3.Engine | None = None
@@ -185,20 +218,28 @@ def _ensure_tts():
 
 
 def speak(text: str):
-    """Speak text aloud (blocking)."""
+    """Speak text aloud. Sets _speaking flag to prevent echo pickup."""
+    global _speaking
     print(f"[ai] {text}")
-    
-    if platform.system() == "Darwin":
-        try:
-            # Use macOS native 'say' command for natural Siri voice
-            subprocess.run(["say", text])
-            return
-        except Exception:
-            pass # fallback to pyttsx3
 
-    _ensure_tts()
-    _tts_engine.say(text)
-    _tts_engine.runAndWait()
+    _speaking = True  # Mute the mic listener during speech
+
+    try:
+        if platform.system() == "Darwin":
+            try:
+                # Use macOS native 'say' for natural Siri-quality voice
+                subprocess.run(["say", text], check=False)
+                return
+            except Exception:
+                pass  # fallback to pyttsx3
+
+        _ensure_tts()
+        _tts_engine.say(text)
+        _tts_engine.runAndWait()
+    finally:
+        # Small delay to let echo dissipate before re-enabling mic
+        time.sleep(0.3)
+        _speaking = False
 
 
 def text_to_wav(text: str, output_path: str | None = None) -> str:
