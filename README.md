@@ -38,6 +38,9 @@ pip3 install synapse-assistant-ai
 
 *(Note: On macOS and Linux, you might need to use `pip3` instead of `pip` depending on your setup).*
 
+> **⚠️ Linux Users:** If you get an `externally-managed-environment` error during install, run:
+> `pip3 install synapse-assistant-ai --break-system-packages` or use `pipx install synapse-assistant-ai`.
+
 ---
 
 ## ⚙️ Quick Start & Setup
@@ -48,7 +51,20 @@ Run the assistant from your terminal:
 synapse-ai
 ```
 
-*(Note: If `synapse-ai` says "command not found", scroll down to the Troubleshooting section below to fix it permanently!)*
+```bash
+synapse-ai
+```
+
+> **🛑 "command not found" on Linux?**
+> When you install via `pip` on Linux without a virtual environment, Python places the command in your local bin folder (`~/.local/bin`), which might not be in your system's PATH. 
+> 
+> **How to fix:**
+> 1. Run it directly using its full path: `~/.local/bin/synapse-ai`
+> 2. **OR** add it to your PATH permanently so the `synapse-ai` command works everywhere:
+>    ```bash
+>    echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+>    source ~/.bashrc
+>    ```
 
 **First-Time Interactive Setup:**
 The first time you run the command, an interactive setup will start right in your terminal:
