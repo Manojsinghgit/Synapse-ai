@@ -45,6 +45,8 @@ dependencies = [
     "pyperclip",
     "Pillow",
     "thefuzz",
+    "pynput",
+    "psutil",
     
     # Proper AI Features
     "wikipedia",

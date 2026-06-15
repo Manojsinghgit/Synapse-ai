@@ -199,6 +199,43 @@ def check_wake_word(text: str) -> str | None:
 # ═══════════════════════════════════════════════════
 
 _tts_engine: pyttsx3.Engine | None = None
+_tts_process = None  # Holds the subprocess.Popen object for macOS native TTS
+
+# Start a background keyboard listener for Barge-in (Interruption)
+try:
+    from pynput import keyboard
+    import psutil
+
+    def on_press(key):
+        global _speaking, _tts_process, _tts_engine
+        if not _speaking:
+            return
+            
+        # If user presses Space or Esc while AI is speaking, interrupt it!
+        if key == keyboard.Key.space or key == keyboard.Key.esc:
+            print("\n[speech] 🛑 INTERRUPTED BY USER")
+            # Kill macOS 'say' process and all its children
+            if _tts_process is not None:
+                try:
+                    parent = psutil.Process(_tts_process.pid)
+                    for child in parent.children(recursive=True):
+                        child.kill()
+                    parent.kill()
+                except psutil.NoSuchProcess:
+                    pass
+                _tts_process = None
+                
+            # Stop pyttsx3 if running
+            if _tts_engine is not None:
+                _tts_engine.stop()
+                
+            _speaking = False
+
+    listener = keyboard.Listener(on_press=on_press)
+    listener.daemon = True
+    listener.start()
+except ImportError:
+    print("[speech] Warning: pynput or psutil not installed. Spacebar interrupt won't work.")
 
 
 def _ensure_tts():
@@ -218,9 +255,10 @@ def _ensure_tts():
 
 
 def speak(text: str):
-    """Speak text aloud. Sets _speaking flag to prevent echo pickup."""
-    global _speaking
+    """Speak text aloud. Sets _speaking flag to prevent echo pickup. Can be interrupted by Spacebar."""
+    global _speaking, _tts_process
     print(f"[ai] {text}")
+    print("[speech] (Press SPACE to interrupt)")
 
     _speaking = True  # Mute the mic listener during speech
 
@@ -228,7 +266,8 @@ def speak(text: str):
         if platform.system() == "Darwin":
             try:
                 # Use macOS native 'say' for natural Siri-quality voice
-                subprocess.run(["say", text], check=False)
+                _tts_process = subprocess.Popen(["say", text])
+                _tts_process.wait()
                 return
             except Exception:
                 pass  # fallback to pyttsx3

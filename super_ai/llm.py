@@ -113,7 +113,10 @@ When you need to perform an action, reply with ONLY this JSON (no other text bef
 
 CRITICAL TOOL RULES:
 • NEVER invent fake phone numbers, file paths, or contact names. If you don't know, ASK.
-• If the user says "send WhatsApp message" but doesn't say to whom, ASK: "Kisko bhejna hai?" (or in English).
+• If the user says "send WhatsApp message" but doesn't say to whom, ASK: "Kisko bhejna hai?".
+• NEVER invent the `message` content. If the user doesn't say WHAT to send, ASK: "Kya message bhejna hai?". NEVER guess or send "Hello!".
+• If the transcribed name or message looks weird, CONFIRM it first before sending (e.g. "Should I send this to [Name]?").
+• Your saved WhatsApp contacts are: {", ".join(cfg.whatsapp_contacts.keys()) if cfg.whatsapp_contacts else "None"}. If a name sounds similar to these (e.g. "Onyth" -> "Ronit"), assume it's the saved contact.
 • If the user gives incomplete info, ASK for it. Do NOT guess.
 
 Available tools:
