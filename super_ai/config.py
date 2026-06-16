@@ -45,6 +45,15 @@ class Config:
     # WhatsApp Contacts (optional: {"name": "+91..."})
     whatsapp_contacts: dict = field(default_factory=dict)
 
+    # ---- New integrations -------------------------------------------------
+    mem0_api: str = "http://localhost:5000"
+    qdrant_host: str = "localhost"
+    qdrant_port: int = 6333
+    embedding_model: str = "fastembed:bge-small"
+    emotion_model: str = "bhadresh-savani/bert-base-uncased-emotion"
+    intent_model: str = "facebook/bart-large-mnli"
+    default_llm: str = "qwen3"
+
     @classmethod
     def load(cls) -> "Config":
         DATA_DIR.mkdir(parents=True, exist_ok=True)

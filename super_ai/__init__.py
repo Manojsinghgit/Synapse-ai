@@ -16,8 +16,10 @@ except importlib.metadata.PackageNotFoundError:
     __version__ = "0.3.3"
 
 from .speech import listen, speak, check_wake_word, text_to_wav
-from .llm import ask
+# ask will be imported lazily after dependencies are ensured
 from .actions import run_action
+# Automatic runtime dependency installer
+from .dependency_manager import ensure_all as _ensure_deps
 
 
 def start_loop():
@@ -29,6 +31,7 @@ def start_loop():
 
     # ── Interactive Setup (if first run) ──
     interactive_setup()
+    _ensure_deps()
 
     # ── Banner ──
     print()
@@ -127,7 +130,7 @@ def start_loop():
     _ensure_tts()
 
     print("⏳ Starting AI brain...")
-    from .llm import _ensure_llm
+    from .llm import _ensure_llm, ask
     _ensure_llm()
 
     # ── Ready ──

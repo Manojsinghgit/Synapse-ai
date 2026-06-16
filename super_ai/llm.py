@@ -9,6 +9,90 @@ import re
 from typing import Any
 
 import ollama as _ollama
+from .config import cfg
+from .memory import MemoryManager
+from .embeddings import embed_text
+from .understanding import detect_intent, detect_emotion
+from .privacy import sanitize_text
+
+# ----------------------------------------------------------------------
+# LLM Provider abstraction (Qwen3 / DeepSeek)
+# ----------------------------------------------------------------------
+class LLMProvider:
+    def __init__(self):
+        # Choose model based on config (default: qwen3)
+        self.model_name = getattr(cfg, "default_llm", "qwen3")
+        # Ensure Ollama has the model; if not, user must install it separately.
+
+    def generate(self, system_prompt: str, user_input: str) -> str:
+        """Generate a response using the selected LLM via Ollama.
+        Args:
+            system_prompt: System instruction.
+            user_input: The transcribed user utterance.
+        Returns:
+            The raw assistant response string.
+        """
+        try:
+            res = _ollama.chat(
+                model=self.model_name,
+                messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_input}],
+                options={"temperature": 0.3, "num_predict": 250},
+            )
+            return res["message"]["content"].strip()
+        except _ollama.ResponseError as exc:
+            if exc.status_code == 404:
+                import subprocess
+                print(f"[llm] Model '{self.model_name}' not found. Downloading it now (this will show a progress bar)...")
+                try:
+                    subprocess.run(["ollama", "pull", self.model_name], check=True)
+                    res = _ollama.chat(
+                        model=self.model_name,
+                        messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_input}],
+                        options={"temperature": 0.3, "num_predict": 250},
+                    )
+                    return res["message"]["content"].strip()
+                except Exception as pull_exc:
+                    print(f"[llm] Could not download '{self.model_name}', falling back to 'llama3.2'...")
+                    self.model_name = "llama3.2"
+                    subprocess.run(["ollama", "pull", self.model_name])
+                    res = _ollama.chat(
+                        model=self.model_name,
+                        messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_input}],
+                        options={"temperature": 0.3, "num_predict": 250},
+                    )
+                    return res["message"]["content"].strip()
+            print(f"[llm] LLM generation error: {exc}")
+            return f"Sorry, I ran into a problem: {exc}"
+        except Exception as exc:
+            print(f"[llm] LLM generation error: {exc}")
+            return f"Sorry, I ran into a problem: {exc}" 
+
+    def quality_check(self, response: str) -> str:
+        """Enforce human‑like response guidelines.
+        Returns a cleaned/rewritten response if needed.
+        """
+        # Simple rule‑based filter – can be extended with a secondary LLM.
+        banned_phrases = [
+            "as an ai",
+            "i understand",
+            "thank you",
+            "i apologize",
+            "i am an ai",
+        ]
+        lowered = response.lower()
+        for phrase in banned_phrases:
+            if phrase in lowered:
+                # Very naive rewrite: ask the LLM to rephrase without the phrase.
+                try:
+                    rewrite = _ollama.chat(
+                        model=self.model_name,
+                        messages=[{"role": "system", "content": "Rewrite the following text without any AI‑cliché phrases and make it sound like a natural human. Respond only with the rewritten text."}, {"role": "user", "content": response}],
+                        options={"temperature": 0.3, "num_predict": 200},
+                    )
+                    return rewrite["message"]["content"].strip()
+                except Exception:
+                    return response
+        return response
 
 from .config import cfg
 from .actions import _DYNAMIC_TOOL_SCHEMAS
@@ -20,24 +104,10 @@ from .actions import _DYNAMIC_TOOL_SCHEMAS
 from thefuzz import fuzz
 
 def contains_wake_word(text: str) -> bool:
-    wake = cfg.wake_word.lower().strip()
-    words = re.findall(r'\b\w+\b', text.lower())
-    if wake in words:
-        return True
-        
-    # Use fuzzy string matching to dynamically catch misspellings/phonetic errors
-    # regardless of what the wake word is changed to in the future
-    for w in words:
-        if fuzz.ratio(wake, w) >= 75:  # 75% similarity threshold
-            return True
-            
-    # Fallback for known weird Whisper hallucinations specifically for "tom"
-    if wake == "tom":
-        weird_hallucinations = {"town", "ton", "dom", "tam", "thom", "time", "dumb", "tod"}
-        if any(w in weird_hallucinations for w in words):
-            return True
-            
-    return False
+    # In always‑listening mode, treat any spoken text as addressed to the assistant.
+    # This bypasses wake‑word requirement while still allowing the LLM to decide
+    # whether the input is a command, question, or just background noise.
+    return True
 
 
 def check_intent_via_llm(text: str) -> bool:
@@ -208,15 +278,31 @@ def ask(user_input: str, expect_followup: bool = False) -> dict | str:
     messages.append({"role": "user", "content": user_input})
 
     try:
-        response = _ollama.chat(
-            model=cfg.ollama_model,
-            messages=messages,
-            options={
-                "temperature": 0.3,
-                "num_predict": 250,
-            },
-        )
-        text = response["message"]["content"].strip()
+        # ---------- Pre‑processing ----------
+        # Detect intent and emotion (used for tone selection later)
+        intent = detect_intent(user_input)
+        emotion = detect_emotion(user_input)
+        # Embed and store the turn for long‑term memory
+        mem = MemoryManager(cfg)
+        embedding = embed_text(user_input)
+        mem.store_turn(user_input, embedding)
+        # Retrieve relevant past turns (semantic memory)
+        similar_context = mem.retrieve_similar(embedding, top_k=3)
+        # Append retrieved context to system prompt for richer background
+        if similar_context:
+            context_block = "\n--- Relevant past conversation ---\n" + "\n".join(similar_context)
+            messages[0]["content"] += context_block
+        # ---------- Generation ----------
+        provider = LLMProvider()
+        system_prompt = messages[0]["content"]
+        # Optionally customize system prompt based on detected intent/emotion
+        if emotion:
+            system_prompt += f"\n[Emotion: {emotion}]"
+        text = provider.generate(system_prompt, user_input)
+        # Quality check to enforce human‑like style
+        text = provider.quality_check(text)
+        # ---------- Post‑processing ----------
+        text = sanitize_text(text)  # remove any PII before speaking
     except Exception as exc:
         print(f"[llm] Error: {exc}")
         return f"Sorry, my brain had an error: {exc}"

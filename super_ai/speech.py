@@ -148,11 +148,10 @@ def listen(timeout: float = 15.0) -> str | None:
 
         # ── Whisper transcription ──
         # initial_prompt biases Whisper to expect the wake word
-        prompt = f"{cfg.wake_word}, "
+        # No initial prompt; always transcribe whatever is heard
         result = _whisper_model.transcribe(
             audio_data,
             fp16=False,
-            initial_prompt=prompt,
             language="en",  # Primary language (Whisper still handles Hindi phonetics)
         )
         text = result.get("text", "").strip()
